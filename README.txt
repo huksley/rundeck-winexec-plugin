@@ -1,5 +1,7 @@
-Win32exec plugin for rundeck
-============================
+Windows execution plugin for rundeck
+====================================
+
+WARNING: Don`t use at production! This is ALPHA quality.
 
 Latest news, code, see at
 https://github.com/huksley/rundeck-winexec-plugin
