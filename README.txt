@@ -8,11 +8,9 @@ https://github.com/huksley/rundeck-winexec-plugin
 
 Executes using j-interop library, svcctl RPC calls. All java, works everythere.
 
-Installs service on remote Windows host for execution,
-which responds on 1989 (by default) port for HTTP
-commands.
-
+Installs service on remote Windows host for execution, which responds on 1989 (by default) port for HTTP commands.
 Removes services on shutdown.
+Checked on Windows 2003 SP2 EE, Windows 2008.
 
 ====== BUILDING
 

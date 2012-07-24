@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>com.wizecore.rundeck.winexec</name>
+	<name>rundeck-winexec-plugin</name>
 	<comment></comment>
 	<projects>
 	</projects>
