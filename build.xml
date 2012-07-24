@@ -1,0 +1,87 @@
+<?xml version="1.0" standalone="yes"?>
+<project basedir="." default="jar">
+	<property name="src" value="src" />
+	<property name="build" value="build" />
+	<property name="lib" value="lib" />
+	<property name="jar" value="com.wizecore.windows.jar" />
+	<property name="service.dir" value="com/wizecore/windows/service" />
+	<property name="plugin.jar" value="rundeck-winexec-plugin-1.4.3.jar"/>
+
+	<path id="classpath">
+		<pathelement path="${src}" />
+		<pathelement path="${build}" />
+		<fileset dir="${lib}" includes="*.jar" />
+	</path>
+
+	<target name="javadoc">
+		<javadoc 
+			classpathref="classpath"
+			docencoding="UTF-8" charset="UTF-8"
+			encoding="UTF-8" destdir="javadoc"
+			access="protected"
+			source="1.6"
+			use="true"
+			notree="false"
+			nonavbar="false"
+			noindex="false"
+			splitindex="true"
+			author="true"
+			version="true"
+			nodeprecatedlist="false" 
+			nodeprecated="false"
+			packagenames="*"
+			sourcepath="${src}" 
+			useexternalfile="yes"
+		/>
+	</target>
+
+	<target name="clean">
+		<delete dir="${build}"/>
+		<delete file="${jar}"/>
+		<delete file="${plugin.jar}"/>
+		<delete dir="javadoc"/>
+	</target>
+
+	<target name="build">
+		<mkdir dir="${build}"/>
+		<javac classpathref="classpath" srcdir="${src}" source="1.6" target="1.6" destdir="${build}" />
+	</target>
+
+	<target name="resources">
+		<copy todir="${build}">
+			<fileset dir="${src}" excludes="**/*.java, **/${jar}"/>
+		</copy>
+	</target>
+
+	<target name="jar" depends="build,resources">
+		<tstamp>
+			<format property="BUILD" pattern="yyyyMMddHHss"/>
+		</tstamp>
+
+		<delete file="${jar}"/>
+		<delete file="${build}/${service.dir}/${jar}"/>
+		<copy force="true" file="jar.mf" tofile="jar.mf.build"/>
+		<replace file="jar.mf.build">
+			<replacefilter token="BUILD" value="${BUILD}"/>
+		</replace>
+
+		<jar destfile="${jar}" manifest="jar.mf.build">
+			<fileset dir="${build}" />
+		</jar>
+
+		<copy file="${jar}" todir="${build}/${service.dir}"/>
+
+		<jar destfile="${jar}" manifest="jar.mf.build">
+			<fileset dir="${build}" />
+		</jar>
+
+		<copy force="true" file="${jar}" tofile="${plugin.jar}"/>
+		<jar destfile="${plugin.jar}" manifest="jar.mf.build" update="true">
+			<zipfileset prefix="lib" dir="${lib}" includes="**/*.jar" excludes="**/rundeck*.jar" />
+		</jar>
+
+		<delete file="jar.mf.build"/>
+	</target>
+
+	<target name="all" depends="clean,jar,javadoc"/>
+</project>

@@ -1,0 +1,11 @@
+Manifest-Version: 1.0
+Main-Class: com.wizecore.windows.RemoteWindowsConsole
+Class-Path: lib/j-interop.jar lib/j-interopdeps.jar lib/jcifs-1.2.18.jar lib/rundeck-core-1.4.3.jar
+Rundeck-Plugin-Version: 1.0
+Rundeck-Plugin-Archive: true
+Rundeck-Plugin-File-Version: 1.0.BUILD
+Rundeck-Plugin-Classnames: com.wizecore.rundeck.windows.Win32NodeExecutor
+Rundeck-Plugin-Libs: lib/j-interop.jar lib/j-interopdeps.jar lib/jcifs-1.2.18.jar
+
+
+
