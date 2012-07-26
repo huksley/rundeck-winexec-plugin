@@ -44,3 +44,10 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
+====== INCLUDED COMPONENTS
+
+A number of additional software components included in this plugin.
+
+jcifs.jar - jcifs.samba.org - LGPL
+jcifs-deps - ? - ?
+Tanuki Software Wrapper - http://www.tanukisoftware.com/ - GPL v.2
