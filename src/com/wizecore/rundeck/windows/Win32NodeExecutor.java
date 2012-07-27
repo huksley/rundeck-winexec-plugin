@@ -116,11 +116,14 @@ public class Win32NodeExecutor implements NodeExecutor, Describable {
 		
 		String hostname = node.getHostname();		
 		hostname = hostname.toLowerCase();
+		String nodeName = node.getNodename();
+		nodeName = nodeName.toLowerCase();
 		
 		String username = node.getUsername();
 		if (username == null) {
-			username = p.getProperty("host." + hostname + ".username", p.getProperty("default.username"));
+			username = p.getProperty("node." + nodeName + ".username", p.getProperty("default.username"));
 		}
+		username = username.toLowerCase();
 		
 		String password = (String) node.getAttributes().get("password");
 		if (password == null) {
@@ -129,7 +132,7 @@ public class Win32NodeExecutor implements NodeExecutor, Describable {
 
 		String domain = (String) node.getAttributes().get("domain");
 		if (domain == null) {
-			domain = p.getProperty("host." + hostname + ".domain", p.getProperty("default.domain"));
+			domain = p.getProperty("node." + nodeName + ".domain", p.getProperty("default.domain"));
 		}
 		
 		if (username == null) {
@@ -142,29 +145,30 @@ public class Win32NodeExecutor implements NodeExecutor, Describable {
 			throw new NullPointerException("No hostname!");
 		}
 		
+		String rootFolder = p.getProperty("node." + nodeName + ".rootFolder", p.getProperty("default.rootFolder"));
+		String serviceName = p.getProperty("node." + nodeName + ".serviceName", p.getProperty("serviceName"));
+		String port = p.getProperty("node." + nodeName + ".port", p.getProperty("default.port"));
+		String token = p.getProperty("node." + nodeName + ".token", p.getProperty("default.token"));
+		String serviceArgument = p.getProperty("node." + nodeName + ".serviceArgument", p.getProperty("default.serviceArgument"));
+		
 		exec = new WindowsServiceExecutor();
 		exec.setHost(hostname);
 		exec.setPassword(password);
 		exec.setUsername(username);
 		exec.setDomain(domain);
-		String rootFolder = p.getProperty("host." + hostname + ".rootFolder", p.getProperty("default.rootFolder"));
 		if (rootFolder != null) {
 			exec.setRootFolder(rootFolder);
 		}
-		String serviceName = p.getProperty("host." + hostname + ".serviceName", p.getProperty("serviceName"));
 		if (serviceName == null) {
 			serviceName = "RundeckWinExec";
 		}
 		exec.setServiceName(serviceName);
-		String port = p.getProperty("host." + hostname + ".port", p.getProperty("default.port"));
 		if (port != null) {
 			exec.setPort(Integer.parseInt(port));
 		}
-		String token = p.getProperty("host." + hostname + ".token", p.getProperty("default.token"));
 		if (token != null) {
 			exec.setToken(token);
 		}
-		String serviceArgument = p.getProperty("host." + hostname + ".serviceArgument", p.getProperty("default.serviceArgument"));
 		if (serviceArgument != null) {
 			exec.setServiceArgument(serviceArgument);
 		}

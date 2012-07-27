@@ -54,10 +54,14 @@ public class Win32CifsCopier implements FileCopier, Describable {
 			}
 			
 			String hostname = node.getHostname();
+			String nodeName = node.getNodename();
+			nodeName = nodeName.toLowerCase();
+			
 			String username = node.getUsername();
 			if (username == null) {
-				username = p.getProperty("host." + hostname + ".username", p.getProperty("default.username"));
+				username = p.getProperty("node." + nodeName + ".username", p.getProperty("default.username"));
 			}
+			username = username.toLowerCase();
 			
 			String password = (String) node.getAttributes().get("password");
 			if (password == null) {
@@ -66,7 +70,7 @@ public class Win32CifsCopier implements FileCopier, Describable {
 	
 			String domain = (String) node.getAttributes().get("domain");
 			if (domain == null) {
-				domain = p.getProperty("host." + hostname + ".domain", p.getProperty("default.domain"));
+				domain = p.getProperty("node." + nodeName + ".domain", p.getProperty("default.domain"));
 			}
 			
 			if (username == null) {

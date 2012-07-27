@@ -44,7 +44,9 @@
 
 	<target name="build">
 		<mkdir dir="${build}"/>
-		<javac classpathref="classpath" srcdir="${src}" source="1.5" target="1.5" destdir="${build}" />
+		<javac classpathref="classpath" srcdir="${src}" 
+			debug="true"
+			source="1.5" target="1.5" destdir="${build}" />
 	</target>
 
 	<target name="resources">
