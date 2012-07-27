@@ -1,16 +1,15 @@
 package com.wizecore.windows;
 
-import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.concurrent.Callable;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -79,6 +78,32 @@ public class WindowsServiceExecutor {
 	 */
 	protected String token;
 	
+	/**
+	 * Additional space separated arguments to service wrapper, for example, direct path to Java executable.
+	 * This can define new parameters or override declared in wrapper.conf.
+	 * For more information see tanukisoftware.com.
+	 * e.g. wrapper.java.command=C:/Java/jdk/bin/java.exe
+	 */
+	protected String serviceArgument;
+	
+	/**
+	 * Number of tries for potentially failing operations.
+	 * For example, because of locked files by antivirus.
+	 */
+	protected int tries = 3;
+	
+	/**
+	 * Wait timeout for single operation (stop/start)
+	 */
+	protected int operationTimeout = 10000;
+	
+	/**
+	 * Pattern format must be kept in sync with one in wrapper.conf, wrapper.logfile = ... 
+	 */
+	protected String getWrapperLog() {
+		return "winexec-" + new SimpleDateFormat("yyyyMMdd").format(new Date()) + ".log";
+	}
+	
 	protected Win32ServiceControl scm;
 	protected NtlmPasswordAuthentication smbAuth;
 	protected String smbPath;
@@ -94,14 +119,25 @@ public class WindowsServiceExecutor {
 		if (token == null) {
 			token = String.valueOf(System.currentTimeMillis());
 		}
+		
 		String args = "wrapper.app.parameter.2=" + port + " wrapper.app.parameter.3=" + token;
-						
-		String serviceFolder = rootFolder + serviceName;
+		if (serviceArgument != null) {
+			args += " ";
+			args += serviceArgument.trim();
+		}
+		
+		String serviceFolder = rootFolder;
+		serviceFolder = serviceFolder.replace("/", "\\");
+		if (!serviceFolder.endsWith("\\")) {
+			serviceFolder += "\\";
+		}
+		serviceFolder += serviceName;
 		smbPath = "smb://" + host + "/" + rootFolder.replace('\\', '/').replaceAll("\\:", "\\$") + "/";	
 		while (smbPath.endsWith("/")) {
 			smbPath = smbPath.substring(0, smbPath.length() - 1);
 		}
 		smbPath += "/";
+		
 		log.info("Checking " + smbPath);
 		smbAuth = new NtlmPasswordAuthentication(domain, username, password);
 		SmbFile rf = new SmbFile(smbPath, smbAuth);
@@ -109,55 +145,97 @@ public class WindowsServiceExecutor {
 		if (!rf.exists()) {
 			throw new FileNotFoundException("Unable to find root folder " + rootFolder);
 		}
-				
-		SmbFile sf = new SmbFile(rf, serviceName + "/");
-		sf.connect();
+		
+		final SmbFile sf = new SmbFile(rf, serviceName + "/");
 		if (!sf.exists()) {
 			sf.mkdir();
 		}
 		
-		scm = new Win32ServiceControl();		
-		scm.connect(host, domain, username, password);		
-		
-		boolean start = false;
-		try {
-			start = scm.isStarted(serviceName);
-			if (start) {
-				log.info("Stopping service " + serviceName);
-				scm.control(serviceName, Win32ServiceControl.CONTROL_STOP);
-				while (!scm.isStopped(serviceName)) {
-					Thread.sleep(100);
+		try {	
+			scm = new Win32ServiceControl();		
+			scm.connect(host, domain, username, password);		
+			
+			boolean start = false;
+			try {
+				start = scm.isStarted(serviceName);
+				if (start) {
+					log.info("Stopping service " + serviceName);
+					scm.control(serviceName, Win32ServiceControl.CONTROL_STOP);
+					tryAgainTimeout(new Callable<Object>() {
+						public Object call() throws Exception {
+							return scm.isStopped(serviceName) ? serviceName : null;
+						}
+						public String toString() { return "isStopped"; }
+					}, null, 100, operationTimeout, 3);
+				}
+				
+				log.info("Deleting service " + serviceName);
+				tryAgain(new Callable<Object>() { public Object call() throws Exception {
+					scm.delete(serviceName);
+					return null;
+				} }, tries);
+			} catch (Exception e) {
+				// Don`t care
+			}
+			
+			tryAgain(new Callable<Object>() { public Object call() throws Exception {
+				deleteResources(serviceFiles, sf);
+				return null;
+			} }, tries);
+			
+			copyResources("service", serviceFiles, sf);
+			
+			try { 
+				int st = scm.getState(serviceName);
+				log.info("Service state: " + st);
+			} catch (Win32Exception e) {
+				if (e.getCode() == 0x00000424) { // The specified service does not exist as an installed service.
+					log.info("Creating service " + serviceName);
+					String serviceExe = serviceFolder + "\\wrapper.exe -s " + serviceFolder + "\\wrapper.conf " + args;
+					serviceExe = serviceExe.replace('/', '\\');
+					scm.create(serviceName, 
+						serviceName, 
+						Win32ServiceControl.SERVICE_DEMAND_START,
+						serviceExe,
+						null, null);				
 				}
 			}
 			
-			log.info("Deleting service " + serviceName);
-			scm.delete(serviceName);
+			log.info("Starting service " + serviceName);
+			tryAgain(new Callable<Object>() { public Object call() throws Exception {
+				scm.start(serviceName);	
+				return null;
+			} }, tries);
+			
+			tryAgainTimeout(new Callable<Object>() {
+				public Object call() throws Exception {
+					return scm.isStarted(serviceName) ? serviceName : null;
+				}
+				public String toString() { return "isStarted"; }
+			}, null, 100, operationTimeout, tries);
 		} catch (Exception e) {
-			// Don`t care
-		}
-		
-		copyResources("service", serviceFiles, sf);
-		
-		try { 
-			int st = scm.getState(serviceName);
-			log.info("Service state: " + st);
-		} catch (Win32Exception e) {
-			if (e.getCode() == 0x00000424) { // The specified service does not exist as an installed service.
-				log.info("Creating service " + serviceName);
-				String serviceExe = serviceFolder + "\\wrapper.exe -s " + serviceFolder + "\\wrapper.conf " + args;
-				serviceExe = serviceExe.replace('/', '\\');
-				scm.create(serviceName, 
-					serviceName, 
-					Win32ServiceControl.SERVICE_DEMAND_START,
-					serviceExe,
-					null, null);				
+			String log = getWrapperLog();
+			SmbFile lf = new SmbFile(sf, log);
+			if (lf.exists()) {
+				ByteArrayOutputStream bos = new ByteArrayOutputStream();
+				InputStream is = lf.getInputStream();
+				try {
+					copyStreamEx(is, bos, 2048);
+					String msg = new String(bos.toByteArray(), "ISO-8859-1");
+					msg = msg.replace("\n", " ");
+					msg = msg.replace("\r", "");
+					msg = msg.replaceAll("[ ]+", " ");
+					IOException ee = new IOException("Failed to start: " + msg + " (" + e.getMessage() + ")");
+					ee.initCause(e);
+					throw ee;
+				} finally {
+					is.close();
+				}
+			} else {
+				IOException ee = new IOException(e.getMessage());
+				ee.initCause(e);
+				throw ee;
 			}
-		}
-		
-		log.info("Starting service " + serviceName);
-		scm.start(serviceName);
-		while (!scm.isStarted(serviceName)) {
-			Thread.sleep(100);
 		}
 	} 
 	
@@ -168,32 +246,86 @@ public class WindowsServiceExecutor {
 		
 		// Stop service
 		log.info("Stopping service " + serviceName);
-		scm.control(serviceName, Win32ServiceControl.CONTROL_STOP);
-		while (!scm.isStopped(serviceName)) {
-			Thread.sleep(100);
+		if (scm.isStarted(serviceName)) {
+			scm.control(serviceName, Win32ServiceControl.CONTROL_STOP);			
 		}
+		tryAgainTimeout(new Callable<Object>() {
+			public Object call() throws Exception {
+				return scm.isStopped(serviceName) ? serviceName : null;
+			}
+			public String toString() { return "isStopped"; }
+		}, null, 100, operationTimeout, 3);
 		
 		log.info("Deleting service " + serviceName);
-		scm.delete(serviceName);
+		
+		tryAgain(new Callable<Object>() { public Object call() throws Exception {
+			scm.delete(serviceName);
+			return null;
+		} }, tries);
+		
 		scm.disconnect();
 		
 		SmbFile rf = new SmbFile(smbPath, smbAuth);
-		SmbFile sf = new SmbFile(rf, serviceName + "/");
-		sf.connect();
-		deleteResources(serviceFiles, sf);
-		deleteFiles(sf);
+		final SmbFile sf = new SmbFile(rf, serviceName + "/");
+		
+		tryAgain(new Callable<Object>() { public Object call() throws Exception {
+			deleteResources(serviceFiles, sf);
+			return null;
+		} }, tries);
+		
+		tryAgain(new Callable<Object>() { public Object call() throws Exception {
+			deleteFiles(sf);
+			return null;
+		} }, tries);
 		sf.delete();
 	}
 
 	protected void deleteFiles(SmbFile sf) throws SmbException {
 		SmbFile[] l = sf.listFiles();
 		for (int i = 0; i < l.length; i++) {
-			log.info("Deleting " + l[i].getName());
+			log.fine("Deleting " + l[i].getName());
 			l[i].delete();
 		}
 	}
 	
-	protected <T> T tryAgain(Callable<T> call, int tries) throws Exception {
+	protected <T> T timeout(Callable<T> waitFor, Callable<Object> run, int sleep, int operationTimeout) {
+		try {
+			long start = System.currentTimeMillis();
+			boolean timeout = false;
+			T value = null;
+			do {
+				value = waitFor.call();
+				
+				if (run != null) {
+					run.call();
+				} 
+				
+				if (sleep > 0) {
+					try {
+						Thread.sleep(sleep);
+					} catch (InterruptedException e) {
+						break;
+					}
+				}
+				
+				timeout = System.currentTimeMillis() - start > operationTimeout;
+			} while (!Thread.interrupted() && value == null && !timeout);
+			if (timeout) {
+				throw new RuntimeException("Timed out waiting for result: " + waitFor);
+			}
+			return value;
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
+	
+	protected <T> T tryAgainTimeout(final Callable<T> waitFor, final Callable<Object> run, final int sleep, final int timeout, int tries) {
+		return tryAgain(new Callable<T>() { public T call() throws Exception {
+			return timeout(waitFor, run, sleep, timeout);
+		} }, tries);
+	}
+	
+	protected <T> T tryAgain(Callable<T> call, int tries) {
 		for (int i = 0; i < tries - 1; i++) {
 			try {
 				return call.call();
@@ -202,7 +334,11 @@ public class WindowsServiceExecutor {
 			}
 		}
 		
-		return call.call();
+		try {
+			return call.call();
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
 	}
 
 	public ProcessResult exec(String cmd) throws IOException {
@@ -219,29 +355,43 @@ public class WindowsServiceExecutor {
 	
 	protected void deleteResources(String[] l, SmbFile sf) throws IOException {
 		for (int i = 0; i < l.length; i++) {
-			log.info("Delete " + l[i]);
+			log.fine("Delete " + l[i]);
 			SmbFile ff = new SmbFile(sf, l[i]);
-			ff.delete();
+			try {
+				if (ff.exists()) {
+					ff.delete();
+				}
+			} catch (Exception e) {
+				IOException ee = new IOException("Failed to delete " + ff + ": " + e.getMessage());
+				ee.initCause(e);
+				throw ee;
+			}
 		}
 	}
 
 	protected void copyResources(String path, String[] l, SmbFile sf) throws IOException {
 		for (int i = 0; i < l.length; i++) {
-			URL res = getClass().getResource(path.replace('.', '/') + "/" + l[i]);
-			if (res != null) {
-				log.info("Copy " + l[i]);
-				InputStream is = res.openStream();
-				try {
-					SmbFile ff = new SmbFile(sf, l[i]);
-					OutputStream os = ff.getOutputStream();
+			try {
+				URL res = getClass().getResource(path.replace('.', '/') + "/" + l[i]);
+				if (res != null) {
+					log.fine("Copy " + l[i]);
+					InputStream is = res.openStream();
 					try {
-						copyStreamEx(is, os, 8192);
+						SmbFile ff = new SmbFile(sf, l[i]);
+						OutputStream os = ff.getOutputStream();
+						try {
+							copyStreamEx(is, os, 8192);
+						} finally {
+							os.close();
+						}
 					} finally {
-						os.close();
+						is.close();
 					}
-				} finally {
-					is.close();
 				}
+			} catch (Exception e) {
+				IOException ee = new IOException("Failed to copy " + l[i] + ": " + e.getMessage());
+				ee.initCause(e);
+				throw ee;
 			}
 		}
 	}
@@ -364,5 +514,19 @@ public class WindowsServiceExecutor {
 	 */
 	public void setToken(String token) {
 		this.token = token;
+	}
+
+	/**
+	 * Getter for {@link WindowsServiceExecutor#serviceArgument}.
+	 */
+	public String getServiceArgument() {
+		return serviceArgument;
+	}
+
+	/**
+	 * Setter for {@link WindowsServiceExecutor#serviceArgument}.
+	 */
+	public void setServiceArgument(String serviceArgument) {
+		this.serviceArgument = serviceArgument;
 	}
 }

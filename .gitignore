@@ -1,1 +1,4 @@
 /build
+/com.wizecore.windows.jar
+/*.jar
+/src\com\wizecore\windows\service/com.wizecore.windows.jar

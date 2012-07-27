@@ -40,8 +40,7 @@ public class WindowsServiceRunner {
 		
 		log.info("Starting on port " + port + ", token " + token);
 		final Thread main = Thread.currentThread();
-		Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {			
-			@Override
+		Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
 			public void run() {
 				running = false;
 				main.interrupt();
@@ -68,7 +67,7 @@ public class WindowsServiceRunner {
 			String path = null;
 			while ((s = in.readLine()) != null) {
 				s = s.trim();
-				if (s.isEmpty()) {
+				if (s.equals("")) {
 					break;
 				} else
 				if (s.startsWith("GET /")) {
@@ -87,19 +86,17 @@ public class WindowsServiceRunner {
 					Process p = Runtime.getRuntime().exec(path);
 					final StringWriter sw = new StringWriter();
 					int res = ProcessMonitor.monitor(p, new ProcessListener() {
-						@Override
 						public void stdout(String line) {
 							try {
-								sw.write(line.trim() + "\r\n");
+								sw.write(line);
 							} catch (Exception e) {
 								e.printStackTrace();
 							}
 						}
 						
-						@Override
 						public void stderr(String line) {
 							try {
-								sw.write(line.trim() + "\r\n");
+								sw.write("ERR:" + line);
 							} catch (Exception e) {
 								e.printStackTrace();
 							}

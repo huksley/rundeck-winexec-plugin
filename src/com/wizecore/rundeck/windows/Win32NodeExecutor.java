@@ -31,6 +31,7 @@ import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
+import java.util.logging.Logger;
 
 import com.dtolabs.rundeck.core.common.INodeEntry;
 import com.dtolabs.rundeck.core.execution.ExecutionContext;
@@ -57,6 +58,12 @@ import com.wizecore.windows.WindowsServiceExecutor;
 @Plugin(name = Win32NodeExecutor.SERVICE_PROVIDER_NAME, service = "NodeExecutor")
 public class Win32NodeExecutor implements NodeExecutor, Describable {
 	public static final String SERVICE_PROVIDER_NAME = "winexec";
+	
+	private final static Logger log = Logger.getLogger(Win32NodeExecutor.class.getName());
+	
+	public Win32NodeExecutor() {
+		log.info("I`ve been created!");
+	}
 	
 	public NodeExecutorResult executeCommand(ExecutionContext context, String[] command, INodeEntry node) throws ExecutionException {
 		try {
@@ -93,7 +100,7 @@ public class Win32NodeExecutor implements NodeExecutor, Describable {
 		}
 	}
 
-	protected synchronized WindowsServiceExecutor open(ExecutionContext context, INodeEntry node) throws IOException, Win32Exception, InterruptedException {
+	protected WindowsServiceExecutor open(ExecutionContext context, INodeEntry node) throws IOException, Win32Exception, InterruptedException {
 		WindowsServiceExecutor exec = ExecutorHolder.getInstance().get(node.getHostname());
 		if (exec != null) {
 			return exec;
@@ -108,6 +115,7 @@ public class Win32NodeExecutor implements NodeExecutor, Describable {
 		}
 		
 		String hostname = node.getHostname();		
+		hostname = hostname.toLowerCase();
 		
 		String username = node.getUsername();
 		if (username == null) {
@@ -155,6 +163,10 @@ public class Win32NodeExecutor implements NodeExecutor, Describable {
 		String token = p.getProperty("host." + hostname + ".token", p.getProperty("default.token"));
 		if (token != null) {
 			exec.setToken(token);
+		}
+		String serviceArgument = p.getProperty("host." + hostname + ".serviceArgument", p.getProperty("default.serviceArgument"));
+		if (serviceArgument != null) {
+			exec.setServiceArgument(serviceArgument);
 		}
 		exec.start();
 		ExecutorHolder.getInstance().add(exec);

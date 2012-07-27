@@ -19,8 +19,8 @@ Checked on Windows 2003 SP2 EE, Windows 2008.
 ====== INSTALLATION
 
 1. Copy rundeck-winexec-plugin-*.jar to RUNDECK_HOME/libexec/
-2. Copy win32exec.properties to RUNDECK_HOME/etc
-3. Modify win32exec.properties to suit your needs
+2. Copy winexec.properties to RUNDECK_HOME/etc
+3. Modify winexec.properties to suit your needs
 
 ====== UPGRADE
 
@@ -29,6 +29,12 @@ Checked on Windows 2003 SP2 EE, Windows 2008.
 3. Delete RUNDECK_HOME/libexec/rundeck-winexec-plugin-*.jar
 4. Copy rundeck-winexec-plugin-*.jar to RUNDECK_HOME/libexec/
 5. Start rundeck
+
+====== NODE REQUIREMENTS =====
+
+1. Java 1.5+ in classpath
+2. Firewall allows java to bind to port
+3. Free port 1989 opened (or you can override using winexec.properties)
 
 ====== LICENSE
 

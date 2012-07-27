@@ -16,12 +16,18 @@ import com.dtolabs.rundeck.core.common.INodeEntry;
 import com.dtolabs.rundeck.core.execution.ExecutionContext;
 import com.dtolabs.rundeck.core.execution.service.FileCopier;
 import com.dtolabs.rundeck.core.execution.service.FileCopierException;
+import com.dtolabs.rundeck.core.execution.service.NodeExecutor;
+import com.dtolabs.rundeck.core.plugins.Plugin;
+import com.dtolabs.rundeck.core.plugins.configuration.AbstractBaseDescription;
+import com.dtolabs.rundeck.core.plugins.configuration.Describable;
+import com.dtolabs.rundeck.core.plugins.configuration.Description;
 import com.wizecore.windows.WindowsServiceExecutor;
 
 /**
  * File copier using SmbFile.
  */
-public class Win32CifsCopier implements FileCopier {
+@Plugin(name = Win32NodeExecutor.SERVICE_PROVIDER_NAME, service = "FileCopier")
+public class Win32CifsCopier implements FileCopier, Describable {
 
 	@Override
 	public String copyFile(ExecutionContext context, File file, INodeEntry node) throws FileCopierException {
@@ -138,5 +144,23 @@ public class Win32CifsCopier implements FileCopier {
 		} catch (IOException e) {
 			throw new FileCopierException(e);
 		}
+	}
+	
+	private static final Description DESC = new AbstractBaseDescription() {
+		public String getName() {
+			return Win32NodeExecutor.SERVICE_PROVIDER_NAME;
+		}
+
+		public String getTitle() {
+			return "Windows Executor";
+		}
+
+		public String getDescription() {
+			return "Windows all java execution";
+		}
+	};
+
+	public Description getDescription() {
+		return DESC;
 	}
 }
