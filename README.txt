@@ -34,7 +34,8 @@ Checked on Windows 2003 SP2 EE, Windows 2008.
 
 1. Java 1.5+ in classpath
 2. Firewall allows java to bind to port
-3. Free port 1989 opened (or you can override using winexec.properties)
+3. You must have port 1989 opened for connect from plugin to node (used by service, can be overriden in winexec..properties)
+4. You must have port 445 opened for connect from plugin to node (both j-interop and jcifs use it)
 
 ====== LICENSE
 
