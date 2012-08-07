@@ -13,10 +13,19 @@ public class Win32Exception extends Exception {
 	public Win32Exception(String message, Throwable cause) {
 		super(message, cause);
 	}
+	
+	public static int getCode(String message) {
+		try {
+			return message.startsWith("0x") ? Integer.parseInt(message.substring(2), 16) : 0;
+		} catch (NumberFormatException e) {
+			// Don`t care
+			return 0;
+		}
+	}
 
 	public Win32Exception(String message) {
-		super(message != null && message.startsWith("0x") ? findWindowsMessage(Integer.parseInt(message.substring(2), 16), message) : message);
-		code = Integer.parseInt(message.substring(2), 16);
+		super(message != null && message.startsWith("0x") ? findWindowsMessage(getCode(message), message) : message);
+		code = getCode(message);
 	}
 	
 	public Win32Exception(int code, String message) {
